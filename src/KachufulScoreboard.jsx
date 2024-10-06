@@ -33,8 +33,6 @@ const KachufulScoreboard = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [winner, setWinner] = useState(null);
-  const [isScoreCalculated, setIsScoreCalculated] = useState(false);
-  const [previousScores, setPreviousScores] = useState([]);
 
   const trumpColors = {
     '♠': 'text-gray-800 dark:text-gray-200',
@@ -93,35 +91,13 @@ const KachufulScoreboard = () => {
       newPlayers[index] = { ...newPlayers[index], [field]: value };
       return newPlayers;
     });
-    if (isScoreCalculated) {
-      // If scores were already calculated, we need to recalculate
-      recalculateScores();
-    } else {
-      setIsScoreCalculated(false);
-    }
   };
 
-  const calculatePlayerScore = (player, previousScore) => {
-    return player.bid === player.tricks ? previousScore + 10 + player.bid : previousScore;
-  };
-
-  const calculateScore = () => {
-    setPreviousScores(players.map(player => player.score));
-    const updatedPlayers = players.map(player => ({
+  const calculateAllScores = () => {
+    return players.map(player => ({
       ...player,
-      score: calculatePlayerScore(player, player.score)
+      score: player.bid === player.tricks ? player.score + 10 + player.bid : player.score
     }));
-    setPlayers(updatedPlayers);
-    setIsScoreCalculated(true);
-  };
-
-  const recalculateScores = () => {
-    const updatedPlayers = players.map((player, index) => ({
-      ...player,
-      score: calculatePlayerScore(player, previousScores[index])
-    }));
-    setPlayers(updatedPlayers);
-    setIsScoreCalculated(true);
   };
 
   const rotatePlayers = () => {
@@ -134,7 +110,9 @@ const KachufulScoreboard = () => {
   };
 
   const nextRound = () => {
-    setGameHistory(prev => [...prev, { round, set, cardCount, players, trumpSuit }]);
+    const updatedPlayers = calculateAllScores();
+    setPlayers(updatedPlayers);
+    setGameHistory(prev => [...prev, { round, set, cardCount, players: updatedPlayers, trumpSuit }]);
     
     if (round % 8 === 0) {
       // End of a set
@@ -150,10 +128,9 @@ const KachufulScoreboard = () => {
     setTrumpSuit(suits[round % 4]);
     
     // Reset bid and tricks, then rotate players
-    const resetPlayers = players.map(player => ({ ...player, bid: 0, tricks: 0 }));
+    const resetPlayers = updatedPlayers.map(player => ({ ...player, bid: 0, tricks: 0 }));
     setPlayers(resetPlayers);
     rotatePlayers();
-    setIsScoreCalculated(false);
   };
 
   const addPlayer = () => {
@@ -240,10 +217,7 @@ const KachufulScoreboard = () => {
 
   const endGame = () => {
     if (window.confirm("Are you sure you want to end the game?")) {
-      const finalScores = players.map(player => ({
-        ...player,
-        score: calculatePlayerScore(player, player.score)
-      }));
+      const finalScores = calculateAllScores();
       const maxScore = Math.max(...finalScores.map(player => player.score));
       const winners = finalScores.filter(player => player.score === maxScore);
       
@@ -335,282 +309,284 @@ const KachufulScoreboard = () => {
 
   return (
     <div className={`p-4 max-w-4xl mx-auto min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100`}>
-      <h1 className="text-4xl font-bold mb-6 text-center">Kachuful Scoreboard</h1>
-      <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
-        {/* Player order information - Moved up */}
-        <div className="mb-4 p-4 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-800 dark:text-blue-200">
-          <p className="text-center font-semibold">
-            <span className="mr-2">🎭</span>
-            {players[0]?.name} starts bidding
-            <span className="mx-2">•</span>
-            <Shuffle className="inline-block h-5 w-5 mr-1" />
-            {players[players.length - 1]?.name} shuffles & deals
-          </p>
+      {/* Header with Dark Mode, Title, and End Game buttons */}
+      <div className="bg-gray-100 dark:bg-gray-900 p-4 shadow-md mb-4">
+        <div className="max-w-4xl mx-auto flex justify-between items-center">
+          <Button onClick={toggleDarkMode} variant="secondary" className="text-sm px-2 py-1">
+            {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+          <h1 className="text-2xl font-bold text-center flex-grow">Kachuful Scoreboard</h1>
+          <Button onClick={endGame} variant="danger" className="text-sm px-2 py-1">
+            End Game
+          </Button>
         </div>
+      </div>
 
-        <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
-          <div className="flex items-center gap-4">
-            <div className="text-lg font-semibold">Set: <span className="text-blue-600 dark:text-blue-400">{set}</span></div>
-            <div className="text-lg font-semibold">Round: <span className="text-blue-600 dark:text-blue-400">{round}/8</span></div>
-            <div className="text-lg font-semibold">Cards: <span className="text-blue-600 dark:text-blue-400">{cardCount}</span></div>
-            <div className="text-lg font-semibold">Trump: <span className={`text-2xl ${trumpColors[trumpSuit]}`}>{trumpSuit}</span></div>
+        <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
+          {/* Player order information */}
+          <div className="mb-4 p-4 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-800 dark:text-blue-200">
+            <p className="text-center font-semibold">
+              <span className="mr-2">🎭</span>
+              {players[0]?.name} starts bidding
+              <span className="mx-2">•</span>
+              <Shuffle className="inline-block h-5 w-5 mr-1" />
+              {players[players.length - 1]?.name} shuffles & deals
+            </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {isScoreCalculated ? (
+
+          <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
+            <div className="flex items-center gap-4">
+              <div className="text-lg font-semibold">Set: <span className="text-blue-600 dark:text-blue-400">{set}</span></div>
+              <div className="text-lg font-semibold">Round: <span className="text-blue-600 dark:text-blue-400">{round}/8</span></div>
+              <div className="text-lg font-semibold">Cards: <span className="text-blue-600 dark:text-blue-400">{cardCount}</span></div>
+              <div className="text-lg font-semibold">Trump: <span className={`text-2xl ${trumpColors[trumpSuit]}`}>{trumpSuit}</span></div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
               <Button onClick={nextRound} variant="primary">Next Round</Button>
-            ) : (
-              <Button onClick={calculateScore} variant="success">Calculate Score</Button>
-            )}
             {round <= 2 && (
               <Button onClick={addPlayer} variant="secondary">
                 <UserPlus className="mr-2 h-4 w-4" /> Add Player
               </Button>
             )}
-            <Button onClick={endGame} variant="danger">
-              End Game
-            </Button>
-            <Button onClick={toggleDarkMode} variant="secondary">
-              {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
           </div>
-        </div>
-        
-        {/* Table view for larger screens */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-200 dark:bg-gray-700">
-                <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Player</th>
-                <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Score</th>
-                <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Bid</th>
-                <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Tricks</th>
-                <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((player, index) => {
-                const isLeading = player.score === getLeadingScore() && round > 1;
-                const isLosing = player.score === getLosingScore() && round > 1;
-                return (
-                  <tr key={index} className={`border-b border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                    isLeading ? 'bg-green-100 dark:bg-green-900' : 
-                    isLosing ? 'bg-red-100 dark:bg-red-900' : ''
-                  }`}>
-                    <td className="border border-gray-300 dark:border-gray-600 p-2">
-                      {renderPlayerName(
-                        player, 
-                        index, 
-                        isLeading, 
-                        isLosing, 
-                        round <= 2, 
-                        updatePlayerName
-                      )}
-                    </td>
-                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center font-bold text-lg">
-                      {player.score}
-                    </td>
-                    <td className="border border-gray-300 dark:border-gray-600 p-2">
-                      <div className="flex items-center justify-center space-x-2">
-                        <Button onClick={() => updatePlayer(index, 'bid', Math.max(0, player.bid - 1))} variant="secondary">
-                          <Minus className="h-4 w-4" />
+          </div>
+          
+          {/* Table view for larger screens */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-200 dark:bg-gray-700">
+                  <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Player</th>
+                  <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Score</th>
+                  <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Bid</th>
+                  <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Tricks</th>
+                  <th className="border border-gray-300 dark:border-gray-600 p-2 text-left">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {players.map((player, index) => {
+                  const isLeading = player.score === getLeadingScore() && round > 1;
+                  const isLosing = player.score === getLosingScore() && round > 1;
+                  return (
+                    <tr key={index} className={`border-b border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                      isLeading ? 'bg-green-100 dark:bg-green-900' : 
+                      isLosing ? 'bg-red-100 dark:bg-red-900' : ''
+                    }`}>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2">
+                        {renderPlayerName(
+                          player, 
+                          index, 
+                          isLeading, 
+                          isLosing, 
+                          round <= 2, 
+                          updatePlayerName
+                        )}
+                      </td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2 text-center font-bold text-lg">
+                        {player.score}
+                      </td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Button onClick={() => updatePlayer(index, 'bid', Math.max(0, player.bid - 1))} variant="secondary">
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <span className="font-bold text-lg w-8 text-center">{player.bid}</span>
+                          <Button onClick={() => updatePlayer(index, 'bid', player.bid + 1)} variant="secondary">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Button onClick={() => updatePlayer(index, 'tricks', Math.max(0, player.tricks - 1))} variant="secondary">
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <span className="font-bold text-lg w-8 text-center">{player.tricks}</span>
+                          <Button onClick={() => updatePlayer(index, 'tricks', player.tricks + 1)} variant="secondary">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="border border-gray-300 dark:border-gray-600 p-2">
+                        <Button onClick={() => removePlayer(index)} variant="danger">
+                          <UserMinus className="h-4 w-4" />
                         </Button>
-                        <span className="font-bold text-lg w-8 text-center">{player.bid}</span>
-                        <Button onClick={() => updatePlayer(index, 'bid', player.bid + 1)} variant="secondary">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 dark:border-gray-600 p-2">
-                      <div className="flex items-center justify-center space-x-2">
-                        <Button onClick={() => updatePlayer(index, 'tricks', Math.max(0, player.tricks - 1))} variant="secondary">
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="font-bold text-lg w-8 text-center">{player.tricks}</span>
-                        <Button onClick={() => updatePlayer(index, 'tricks', player.tricks + 1)} variant="secondary">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 dark:border-gray-600 p-2">
-                      <Button onClick={() => removePlayer(index)} variant="danger">
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Card view for mobile screens */}
-        <div className="md:hidden space-y-4">
-          {players.map((player, index) => {
-            const isLeading = player.score === getLeadingScore() && round > 1;
-            const isLosing = player.score === getLosingScore() && round > 1;
-            return (
-              <div key={index} className={`p-4 rounded-lg shadow ${
-                isLeading ? 'bg-green-100 dark:bg-green-900' : 
-                isLosing ? 'bg-red-100 dark:bg-red-900' : 
-                'bg-gray-50 dark:bg-gray-700'
-              }`}>
-                <div className="flex justify-between items-center mb-2">
-                  {renderPlayerName(
-                    player, 
-                    index, 
-                    isLeading, 
-                    isLosing, 
-                    round <= 2, 
-                    updatePlayerName
-                  )}
-                  <Button onClick={() => removePlayer(index)} variant="danger" className="ml-2">
-                    <UserMinus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className={`font-bold ${
-                    isLeading ? 'text-green-600 dark:text-green-400' : 
-                    isLosing ? 'text-red-600 dark:text-red-400' : ''
-                  }`}>
-                    Score: {player.score}
-                  </span>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-semibold">Bid:</span>
-                    <Button onClick={() => updatePlayer(index, 'bid', Math.max(0, player.bid - 1))} variant="secondary">
+          {/* Card view for mobile screens */}
+          <div className="md:hidden space-y-4">
+            {players.map((player, index) => {
+              const isLeading = player.score === getLeadingScore() && round > 1;
+              const isLosing = player.score === getLosingScore() && round > 1;
+              return (
+                <div key={index} className={`p-4 rounded-lg shadow ${
+                  isLeading ? 'bg-green-100 dark:bg-green-900' : 
+                  isLosing ? 'bg-red-100 dark:bg-red-900' : 
+                  'bg-gray-50 dark:bg-gray-700'
+                }`}>
+                  <div className="flex justify-between items-center mb-2">
+                    {renderPlayerName(
+                      player, 
+                      index, 
+                      isLeading, 
+                      isLosing, 
+                      round <= 2, 
+                      updatePlayerName
+                    )}
+                    <Button onClick={() => removePlayer(index)} variant="danger" className="ml-2">
+                      <UserMinus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className={`font-bold ${
+                      isLeading ? 'text-green-600 dark:text-green-400' : 
+                      isLosing ? 'text-red-600 dark:text-red-400' : ''
+                    }`}>
+                      Score: {player.score}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold">Bid:</span>
+                      <Button onClick={() => updatePlayer(index, 'bid', Math.max(0, player.bid - 1))} variant="secondary">
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="font-bold text-lg w-8 text-center">{player.bid}</span>
+                      <Button onClick={() => updatePlayer(index, 'bid', player.bid + 1)} variant="secondary">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex justify-end items-center">
+                    <span className="font-semibold mr-2">Tricks:</span>
+                    <Button onClick={() => updatePlayer(index, 'tricks', Math.max(0, player.tricks - 1))} variant="secondary">
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="font-bold text-lg w-8 text-center">{player.bid}</span>
-                    <Button onClick={() => updatePlayer(index, 'bid', player.bid + 1)} variant="secondary">
+                    <span className="font-bold text-lg w-8 text-center">{player.tricks}</span>
+                    <Button onClick={() => updatePlayer(index, 'tricks', player.tricks + 1)} variant="secondary">
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-                <div className="flex justify-end items-center">
-                  <span className="font-semibold mr-2">Tricks:</span>
-                  <Button onClick={() => updatePlayer(index, 'tricks', Math.max(0, player.tricks - 1))} variant="secondary">
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="font-bold text-lg w-8 text-center">{player.tricks}</span>
-                  <Button onClick={() => updatePlayer(index, 'tricks', player.tricks + 1)} variant="secondary">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex mb-4">
-          <button
-            onClick={() => setActiveTab('current')}
-            className={`px-4 py-2 ${activeTab === 'current' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} rounded-l-lg`}
-          >
-            Current Game
-          </button>
-          <button
-            onClick={() => setActiveTab('past')}
-            className={`px-4 py-2 ${activeTab === 'past' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} rounded-r-lg`}
-          >
-            Past Games
-          </button>
+              );
+            })}
+          </div>
         </div>
         
-        {activeTab === 'current' ? (
-          <div>
-            <h2 className="text-xl font-bold mb-2">Current Game History</h2>
-            {gameHistory.length === 0 ? (
-              <p>No rounds played yet in the current game.</p>
-            ) : (
-              <div className="space-y-4">
-                {gameHistory.map((history, historyIndex) => (
-                  <div key={historyIndex} className="border border-gray-300 dark:border-gray-600 p-2 rounded">
-                    <h3 className="font-bold">Set {history.set}, Round {history.round}</h3>
-                    <p>Cards: {history.cardCount}, Trump: <span className={trumpColors[history.trumpSuit]}>{history.trumpSuit}</span></p>
-                    <ul>
-                      {history.players.map((player, playerIndex) => {
-                        const isLeading = player.score === Math.max(...history.players.map(p => p.score));
-                        const isLosing = player.score === Math.min(...history.players.map(p => p.score));
-                        return (
-                          <li key={playerIndex} className={`${
-                            isLeading ? 'text-green-600 dark:text-green-400' : 
-                            isLosing ? 'text-red-600 dark:text-red-400' : ''
-                          }`}>
-                            {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
-                            Score: {player.score}, Bid: {player.bid}, Tricks: {player.tricks}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="flex mb-4">
+            <button
+              onClick={() => setActiveTab('current')}
+              className={`px-4 py-2 ${activeTab === 'current' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} rounded-l-lg`}
+            >
+              Current Game
+            </button>
+            <button
+              onClick={() => setActiveTab('past')}
+              className={`px-4 py-2 ${activeTab === 'past' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} rounded-r-lg`}
+            >
+              Past Games
+            </button>
           </div>
-        ) : (
-          <div>
-            <h2 className="text-xl font-bold mb-2">Past Games</h2>
-            {pastGames.length === 0 ? (
-              <p>No past games available.</p>
-            ) : (
-              <div className="space-y-4">
-                {pastGames.map((game, gameIndex) => (
-                  <div key={game.id} className="border border-gray-300 dark:border-gray-600 p-2 rounded">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold">Game {gameIndex + 1} - {game.date}</h3>
-                      <Button onClick={() => deletePastGame(game.id)} variant="danger">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+          
+          {activeTab === 'current' ? (
+            <div>
+              <h2 className="text-xl font-bold mb-2">Current Game History</h2>
+              {gameHistory.length === 0 ? (
+                <p>No rounds played yet in the current game.</p>
+              ) : (
+                <div className="space-y-4">
+                  {gameHistory.map((history, historyIndex) => (
+                    <div key={historyIndex} className="border border-gray-300 dark:border-gray-600 p-2 rounded">
+                      <h3 className="font-bold">Set {history.set}, Round {history.round}</h3>
+                      <p>Cards: {history.cardCount}, Trump: <span className={trumpColors[history.trumpSuit]}>{history.trumpSuit}</span></p>
+                      <ul>
+                        {history.players.map((player, playerIndex) => {
+                          const isLeading = player.score === Math.max(...history.players.map(p => p.score));
+                          const isLosing = player.score === Math.min(...history.players.map(p => p.score));
+                          return (
+                            <li key={playerIndex} className={`${
+                              isLeading ? 'text-green-600 dark:text-green-400' : 
+                              isLosing ? 'text-red-600 dark:text-red-400' : ''
+                            }`}>
+                              {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
+                              Score: {player.score}, Bid: {player.bid}, Tricks: {player.tricks}
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
-                    <p>Final Scores:</p>
-                    <ul>
-                      {game.players.map((player, playerIndex) => {
-                        const isLeading = player.score === Math.max(...game.players.map(p => p.score));
-                        const isLosing = player.score === Math.min(...game.players.map(p => p.score));
-                        return (
-                          <li key={playerIndex} className={`${
-                            isLeading ? 'text-green-600 dark:text-green-400' : 
-                            isLosing ? 'text-red-600 dark:text-red-400' : ''
-                          }`}>
-                            {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
-                            {player.score}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    <details>
-                      <summary className="cursor-pointer text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">View Game Details</summary>
-                      <div className="mt-2">
-                        {game.rounds.map((round, roundIndex) => (
-                          <div key={roundIndex} className="border-t border-gray-300 dark:border-gray-600 pt-2 mt-2">
-                            <h4 className="font-semibold">Set {round.set}, Round {round.round}</h4>
-                            <p>Cards: {round.cardCount}, Trump: <span className={trumpColors[round.trumpSuit]}>{round.trumpSuit}</span></p>
-                            <ul>
-                              {round.players.map((player, playerIndex) => {
-                                const isLeading = player.score === Math.max(...round.players.map(p => p.score));
-                                const isLosing = player.score === Math.min(...round.players.map(p => p.score));
-                                return (
-                                  <li key={playerIndex} className={`${
-                                    isLeading ? 'text-green-600 dark:text-green-400' : 
-                                    isLosing ? 'text-red-600 dark:text-red-400' : ''
-                                  }`}>
-                                    {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
-                                    Score: {player.score}, Bid: {player.bid}, Tricks: {player.tricks}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        ))}
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-xl font-bold mb-2">Past Games</h2>
+              {pastGames.length === 0 ? (
+                <p>No past games available.</p>
+              ) : (
+                <div className="space-y-4">
+                  {pastGames.map((game, gameIndex) => (
+                    <div key={game.id} className="border border-gray-300 dark:border-gray-600 p-2 rounded">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-bold">Game {gameIndex + 1} - {game.date}</h3>
+                        <Button onClick={() => deletePastGame(game.id)} variant="danger">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </details>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                      <p>Final Scores:</p>
+                      <ul>
+                        {game.players.map((player, playerIndex) => {
+                          const isLeading = player.score === Math.max(...game.players.map(p => p.score));
+                          const isLosing = player.score === Math.min(...game.players.map(p => p.score));
+                          return (
+                            <li key={playerIndex} className={`${
+                              isLeading ? 'text-green-600 dark:text-green-400' : 
+                              isLosing ? 'text-red-600 dark:text-red-400' : ''
+                            }`}>
+                              {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
+                              {player.score}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <details>
+                        <summary className="cursor-pointer text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">View Game Details</summary>
+                        <div className="mt-2">
+                          {game.rounds.map((round, roundIndex) => (
+                            <div key={roundIndex} className="border-t border-gray-300 dark:border-gray-600 pt-2 mt-2">
+                              <h4 className="font-semibold">Set {round.set}, Round {round.round}</h4>
+                              <p>Cards: {round.cardCount}, Trump: <span className={trumpColors[round.trumpSuit]}>{round.trumpSuit}</span></p>
+                              <ul>
+                                {round.players.map((player, playerIndex) => {
+                                  const isLeading = player.score === Math.max(...round.players.map(p => p.score));
+                                  const isLosing = player.score === Math.min(...round.players.map(p => p.score));
+                                  return (
+                                    <li key={playerIndex} className={`${
+                                      isLeading ? 'text-green-600 dark:text-green-400' : 
+                                      isLosing ? 'text-red-600 dark:text-red-400' : ''
+                                    }`}>
+                                      {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
+                                      Score: {player.score}, Bid: {player.bid}, Tricks: {player.tricks}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
       </div>
     </div>
   );
