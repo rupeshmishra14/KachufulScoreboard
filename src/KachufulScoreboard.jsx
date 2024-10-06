@@ -33,6 +33,7 @@ const KachufulScoreboard = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [winner, setWinner] = useState(null);
+  const [previousRoundData, setPreviousRoundData] = useState(null);
 
   const trumpColors = {
     '♠': 'text-gray-800 dark:text-gray-200',
@@ -216,23 +217,25 @@ const KachufulScoreboard = () => {
   );
 
   const endGame = () => {
-    const finalScores = calculateAllScores();
-    const maxScore = Math.max(...finalScores.map(player => player.score));
-    const winners = finalScores.filter(player => player.score === maxScore);
-    
-    setPlayers(finalScores);
-    setWinner(winners);
-    setGameEnded(true);
-    
-    const finalGameState = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString(),
-      players: finalScores,
-      rounds: [...gameHistory, { round, set, cardCount, players: finalScores, trumpSuit }]
-    };
-    setPastGames(prev => [...prev, finalGameState]);
-    
-    localStorage.removeItem('kachufulState');
+    if (window.confirm("Are you sure you want to end the game?")) {
+      const finalScores = calculateAllScores();
+      const maxScore = Math.max(...finalScores.map(player => player.score));
+      const winners = finalScores.filter(player => player.score === maxScore);
+      
+      setPlayers(finalScores);
+      setWinner(winners);
+      setGameEnded(true);
+      
+      const finalGameState = {
+        id: Date.now(),
+        date: new Date().toLocaleDateString(),
+        players: finalScores,
+        rounds: [...gameHistory, { round, set, cardCount, players: finalScores, trumpSuit }]
+      };
+      setPastGames(prev => [...prev, finalGameState]);
+      
+      localStorage.removeItem('kachufulState');
+    }
   };
 
   const getCardSuit = (index) => {
@@ -247,6 +250,18 @@ const KachufulScoreboard = () => {
       case 3: return <span className="text-2xl mr-2" role="img" aria-label="Bronze Medal">🥉</span>;
       default: return null;
     }
+  };
+
+  const showPreviousRound = () => {
+    if (gameHistory.length > 0) {
+      setPreviousRoundData(gameHistory[gameHistory.length - 1]);
+    } else {
+      alert("No previous round data available.");
+    }
+  };
+
+  const closePreviousRound = () => {
+    setPreviousRoundData(null);
   };
 
   if (!gameActive && !gameEnded) {
@@ -309,27 +324,6 @@ const KachufulScoreboard = () => {
     <div className={`p-4 max-w-4xl mx-auto min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100`}>
       <h1 className="text-4xl font-bold mb-6 text-center">Kachuful Scoreboard</h1>
       <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
-        <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
-          <div className="flex items-center gap-4">
-            <div className="text-lg font-semibold">Set: <span className="text-blue-600 dark:text-blue-400">{set}</span></div>
-            <div className="text-lg font-semibold">Round: <span className="text-blue-600 dark:text-blue-400">{round}/8</span></div>
-            <div className="text-lg font-semibold">Cards: <span className="text-blue-600 dark:text-blue-400">{cardCount}</span></div>
-            <div className="text-lg font-semibold">Trump: <span className={`text-2xl ${trumpColors[trumpSuit]}`}>{trumpSuit}</span></div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={nextRound} variant="primary">Next Round</Button>
-            <Button onClick={addPlayer} variant="secondary">
-              <UserPlus className="mr-2 h-4 w-4" /> Add Player
-            </Button>
-            <Button onClick={endGame} variant="danger">
-              End Game
-            </Button>
-            <Button onClick={toggleDarkMode} variant="secondary">
-              {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-        
         {/* Player order information */}
         <div className="mb-4 p-4 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-800 dark:text-blue-200">
           <p className="text-center font-semibold">
@@ -341,6 +335,28 @@ const KachufulScoreboard = () => {
           </p>
         </div>
 
+        <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
+          <div className="flex items-center gap-4">
+            <div className="text-lg font-semibold">Set: <span className="text-blue-600 dark:text-blue-400">{set}</span></div>
+            <div className="text-lg font-semibold">Round: <span className="text-blue-600 dark:text-blue-400">{round}/8</span></div>
+            <div className="text-lg font-semibold">Cards: <span className="text-blue-600 dark:text-blue-400">{cardCount}</span></div>
+            <div className="text-lg font-semibold">Trump: <span className={`text-2xl ${trumpColors[trumpSuit]}`}>{trumpSuit}</span></div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {round <= 2 && (
+              <Button onClick={addPlayer} variant="secondary">
+                <UserPlus className="mr-2 h-4 w-4" /> Add Player
+              </Button>
+            )}
+            <Button onClick={endGame} variant="danger">
+              End Game
+            </Button>
+            <Button onClick={toggleDarkMode} variant="secondary">
+              {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+        
         {/* Table view for larger screens */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full border-collapse">
@@ -465,6 +481,50 @@ const KachufulScoreboard = () => {
             );
           })}
         </div>
+
+        {/* Next Round and Previous Round buttons */}
+        <div className="mt-6 flex justify-center space-x-4">
+          <Button onClick={showPreviousRound} variant="secondary" className="px-8 py-3 text-lg">
+            Previous Round
+          </Button>
+          <Button onClick={nextRound} variant="primary" className="px-8 py-3 text-lg">
+            Next Round
+          </Button>
+        </div>
+
+        {/* Previous Round Modal */}
+        {previousRoundData && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-2xl w-full">
+              <h2 className="text-2xl font-bold mb-4">Previous Round</h2>
+              <p>Set: {previousRoundData.set}, Round: {previousRoundData.round}</p>
+              <p>Cards: {previousRoundData.cardCount}, Trump: {previousRoundData.trumpSuit}</p>
+              <table className="w-full mt-4">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>Score</th>
+                    <th>Bid</th>
+                    <th>Tricks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previousRoundData.players.map((player, index) => (
+                    <tr key={index}>
+                      <td>{player.name}</td>
+                      <td>{player.score}</td>
+                      <td>{player.bid}</td>
+                      <td>{player.tricks}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <Button onClick={closePreviousRound} variant="secondary" className="mt-4">
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
       
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
