@@ -33,6 +33,7 @@ const KachufulScoreboard = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [winner, setWinner] = useState(null);
+  const [isScoreCalculated, setIsScoreCalculated] = useState(false);
 
   const trumpColors = {
     '♠': 'text-gray-800 dark:text-gray-200',
@@ -91,6 +92,7 @@ const KachufulScoreboard = () => {
       newPlayers[index] = { ...newPlayers[index], [field]: value };
       return newPlayers;
     });
+    setIsScoreCalculated(false);
   };
 
   const calculateAllScores = () => {
@@ -109,10 +111,14 @@ const KachufulScoreboard = () => {
     });
   };
 
-  const nextRound = () => {
+  const calculateScore = () => {
     const updatedPlayers = calculateAllScores();
     setPlayers(updatedPlayers);
-    setGameHistory(prev => [...prev, { round, set, cardCount, players: updatedPlayers, trumpSuit }]);
+    setIsScoreCalculated(true);
+  };
+
+  const nextRound = () => {
+    setGameHistory(prev => [...prev, { round, set, cardCount, players, trumpSuit }]);
     
     if (round % 8 === 0) {
       // End of a set
@@ -128,9 +134,10 @@ const KachufulScoreboard = () => {
     setTrumpSuit(suits[round % 4]);
     
     // Reset bid and tricks, then rotate players
-    const resetPlayers = updatedPlayers.map(player => ({ ...player, bid: 0, tricks: 0 }));
+    const resetPlayers = players.map(player => ({ ...player, bid: 0, tricks: 0 }));
     setPlayers(resetPlayers);
     rotatePlayers();
+    setIsScoreCalculated(false);
   };
 
   const addPlayer = () => {
@@ -342,13 +349,12 @@ const KachufulScoreboard = () => {
               <div className="text-lg font-semibold">Trump: <span className={`text-2xl ${trumpColors[trumpSuit]}`}>{trumpSuit}</span></div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Button onClick={nextRound} variant="primary">Next Round</Button>
-            {round <= 2 && (
-              <Button onClick={addPlayer} variant="secondary">
-                <UserPlus className="mr-2 h-4 w-4" /> Add Player
-              </Button>
-            )}
-          </div>
+              {round <= 2 && (
+                <Button onClick={addPlayer} variant="secondary">
+                  <UserPlus className="mr-2 h-4 w-4" /> Add Player
+                </Button>
+              )}
+            </div>
           </div>
           
           {/* Table view for larger screens */}
@@ -474,6 +480,15 @@ const KachufulScoreboard = () => {
                 </div>
               );
             })}
+          </div>
+
+          {/* Calculate Score / Next Round button */}
+          <div className="mt-6 flex justify-center">
+            {isScoreCalculated ? (
+              <Button onClick={nextRound} variant="primary" className="px-8 py-3 text-lg">Next Round</Button>
+            ) : (
+              <Button onClick={calculateScore} variant="success" className="px-8 py-3 text-lg">Calculate Score</Button>
+            )}
           </div>
         </div>
         
