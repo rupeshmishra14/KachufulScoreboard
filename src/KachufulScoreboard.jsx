@@ -33,7 +33,8 @@ const KachufulScoreboard = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [winner, setWinner] = useState(null);
-  const [previousRoundData, setPreviousRoundData] = useState(null);
+  const [isScoreCalculated, setIsScoreCalculated] = useState(false);
+  const [previousScores, setPreviousScores] = useState([]);
 
   const trumpColors = {
     '♠': 'text-gray-800 dark:text-gray-200',
@@ -92,13 +93,35 @@ const KachufulScoreboard = () => {
       newPlayers[index] = { ...newPlayers[index], [field]: value };
       return newPlayers;
     });
+    if (isScoreCalculated) {
+      // If scores were already calculated, we need to recalculate
+      recalculateScores();
+    } else {
+      setIsScoreCalculated(false);
+    }
   };
 
-  const calculateAllScores = () => {
-    return players.map(player => ({
+  const calculatePlayerScore = (player, previousScore) => {
+    return player.bid === player.tricks ? previousScore + 10 + player.bid : previousScore;
+  };
+
+  const calculateScore = () => {
+    setPreviousScores(players.map(player => player.score));
+    const updatedPlayers = players.map(player => ({
       ...player,
-      score: player.bid === player.tricks ? player.score + 10 + player.bid : player.score
+      score: calculatePlayerScore(player, player.score)
     }));
+    setPlayers(updatedPlayers);
+    setIsScoreCalculated(true);
+  };
+
+  const recalculateScores = () => {
+    const updatedPlayers = players.map((player, index) => ({
+      ...player,
+      score: calculatePlayerScore(player, previousScores[index])
+    }));
+    setPlayers(updatedPlayers);
+    setIsScoreCalculated(true);
   };
 
   const rotatePlayers = () => {
@@ -111,9 +134,7 @@ const KachufulScoreboard = () => {
   };
 
   const nextRound = () => {
-    const updatedPlayers = calculateAllScores();
-    setPlayers(updatedPlayers);
-    setGameHistory(prev => [...prev, { round, set, cardCount, players: updatedPlayers, trumpSuit }]);
+    setGameHistory(prev => [...prev, { round, set, cardCount, players, trumpSuit }]);
     
     if (round % 8 === 0) {
       // End of a set
@@ -129,9 +150,10 @@ const KachufulScoreboard = () => {
     setTrumpSuit(suits[round % 4]);
     
     // Reset bid and tricks, then rotate players
-    const resetPlayers = updatedPlayers.map(player => ({ ...player, bid: 0, tricks: 0 }));
+    const resetPlayers = players.map(player => ({ ...player, bid: 0, tricks: 0 }));
     setPlayers(resetPlayers);
     rotatePlayers();
+    setIsScoreCalculated(false);
   };
 
   const addPlayer = () => {
@@ -218,7 +240,10 @@ const KachufulScoreboard = () => {
 
   const endGame = () => {
     if (window.confirm("Are you sure you want to end the game?")) {
-      const finalScores = calculateAllScores();
+      const finalScores = players.map(player => ({
+        ...player,
+        score: calculatePlayerScore(player, player.score)
+      }));
       const maxScore = Math.max(...finalScores.map(player => player.score));
       const winners = finalScores.filter(player => player.score === maxScore);
       
@@ -250,18 +275,6 @@ const KachufulScoreboard = () => {
       case 3: return <span className="text-2xl mr-2" role="img" aria-label="Bronze Medal">🥉</span>;
       default: return null;
     }
-  };
-
-  const showPreviousRound = () => {
-    if (gameHistory.length > 0) {
-      setPreviousRoundData(gameHistory[gameHistory.length - 1]);
-    } else {
-      alert("No previous round data available.");
-    }
-  };
-
-  const closePreviousRound = () => {
-    setPreviousRoundData(null);
   };
 
   if (!gameActive && !gameEnded) {
@@ -324,7 +337,7 @@ const KachufulScoreboard = () => {
     <div className={`p-4 max-w-4xl mx-auto min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100`}>
       <h1 className="text-4xl font-bold mb-6 text-center">Kachuful Scoreboard</h1>
       <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
-        {/* Player order information */}
+        {/* Player order information - Moved up */}
         <div className="mb-4 p-4 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-800 dark:text-blue-200">
           <p className="text-center font-semibold">
             <span className="mr-2">🎭</span>
@@ -343,6 +356,11 @@ const KachufulScoreboard = () => {
             <div className="text-lg font-semibold">Trump: <span className={`text-2xl ${trumpColors[trumpSuit]}`}>{trumpSuit}</span></div>
           </div>
           <div className="flex gap-2 flex-wrap">
+            {isScoreCalculated ? (
+              <Button onClick={nextRound} variant="primary">Next Round</Button>
+            ) : (
+              <Button onClick={calculateScore} variant="success">Calculate Score</Button>
+            )}
             {round <= 2 && (
               <Button onClick={addPlayer} variant="secondary">
                 <UserPlus className="mr-2 h-4 w-4" /> Add Player
@@ -481,50 +499,6 @@ const KachufulScoreboard = () => {
             );
           })}
         </div>
-
-        {/* Next Round and Previous Round buttons */}
-        <div className="mt-6 flex justify-center space-x-4">
-          <Button onClick={showPreviousRound} variant="secondary" className="px-8 py-3 text-lg">
-            Previous Round
-          </Button>
-          <Button onClick={nextRound} variant="primary" className="px-8 py-3 text-lg">
-            Next Round
-          </Button>
-        </div>
-
-        {/* Previous Round Modal */}
-        {previousRoundData && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-2xl w-full">
-              <h2 className="text-2xl font-bold mb-4">Previous Round</h2>
-              <p>Set: {previousRoundData.set}, Round: {previousRoundData.round}</p>
-              <p>Cards: {previousRoundData.cardCount}, Trump: {previousRoundData.trumpSuit}</p>
-              <table className="w-full mt-4">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>Score</th>
-                    <th>Bid</th>
-                    <th>Tricks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previousRoundData.players.map((player, index) => (
-                    <tr key={index}>
-                      <td>{player.name}</td>
-                      <td>{player.score}</td>
-                      <td>{player.bid}</td>
-                      <td>{player.tricks}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <Button onClick={closePreviousRound} variant="secondary" className="mt-4">
-                Close
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
       
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
