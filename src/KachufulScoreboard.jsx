@@ -173,7 +173,9 @@ const KachufulScoreboard = () => {
             </Button>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        
+        {/* Table view for larger screens */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-200 dark:bg-gray-700">
@@ -226,6 +228,47 @@ const KachufulScoreboard = () => {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Card view for mobile screens */}
+        <div className="md:hidden space-y-4">
+          {players.map((player, index) => (
+            <div key={index} className={`p-4 rounded-lg shadow ${player.score === getLeadingScore() ? 'bg-blue-100 dark:bg-blue-900' : 'bg-gray-50 dark:bg-gray-700'}`}>
+              <div className="flex justify-between items-center mb-2">
+                <input
+                  value={player.name}
+                  onChange={(e) => updatePlayer(index, 'name', e.target.value)}
+                  className="font-semibold text-lg bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500"
+                />
+                <Button onClick={() => removePlayer(index)} variant="danger" className="ml-2">
+                  <UserMinus className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-bold">Score: {player.score}</span>
+                <div className="flex items-center space-x-2">
+                  <span className="font-semibold">Bid:</span>
+                  <Button onClick={() => updatePlayer(index, 'bid', Math.max(0, player.bid - 1))} variant="secondary">
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="font-bold text-lg w-8 text-center">{player.bid}</span>
+                  <Button onClick={() => updatePlayer(index, 'bid', player.bid + 1)} variant="secondary">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex justify-end items-center">
+                <span className="font-semibold mr-2">Tricks:</span>
+                <Button onClick={() => updatePlayer(index, 'tricks', Math.max(0, player.tricks - 1))} variant="secondary">
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="font-bold text-lg w-8 text-center">{player.tricks}</span>
+                <Button onClick={() => updatePlayer(index, 'tricks', player.tricks + 1)} variant="secondary">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       
