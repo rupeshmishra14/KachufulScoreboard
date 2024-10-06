@@ -145,23 +145,48 @@ const KachufulScoreboard = () => {
     return Math.min(...players.map(player => player.score));
   }, [players]);
 
-  const renderPlayerName = (player, index, isLeading, isLosing) => (
+  const updatePlayerName = (index, newName, historyIndex = -1) => {
+    if (historyIndex === -1) {
+      // Update current players
+      setPlayers(prevPlayers => {
+        const newPlayers = [...prevPlayers];
+        newPlayers[index] = { ...newPlayers[index], name: newName };
+        return newPlayers;
+      });
+    } else {
+      // Update game history
+      setGameHistory(prevHistory => {
+        const newHistory = [...prevHistory];
+        newHistory[historyIndex].players[index].name = newName;
+        return newHistory;
+      });
+    }
+  };
+
+  const updatePastGamePlayerName = (gameIndex, playerIndex, newName) => {
+    setPastGames(prevGames => {
+      const newGames = [...prevGames];
+      newGames[gameIndex].players[playerIndex].name = newName;
+      newGames[gameIndex].rounds.forEach(round => {
+        round.players[playerIndex].name = newName;
+      });
+      return newGames;
+    });
+  };
+
+  const renderPlayerName = (player, index, isLeading, isLosing, isEditable, updateNameFunction) => (
     <div className="flex items-center">
-      <input
-        value={player.name}
-        onChange={(e) => updatePlayer(index, 'name', e.target.value)}
-        className="font-semibold mr-2 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500"
-      />
-      {round > 1 && (
-        <>
-          {isLeading && (
-            <Crown className="h-5 w-5 text-yellow-500 animate-bounce" />
-          )}
-          {isLosing && (
-            <Frown className="h-5 w-5 text-red-500 animate-pulse" />
-          )}
-        </>
+      {isEditable ? (
+        <input
+          value={player.name}
+          onChange={(e) => updateNameFunction(index, e.target.value)}
+          className="font-semibold mr-2 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500"
+        />
+      ) : (
+        <span className="font-semibold mr-2">{player.name}</span>
       )}
+      {isLeading && <Crown className="h-5 w-5 text-yellow-500 animate-bounce" />}
+      {isLosing && <Frown className="h-5 w-5 text-red-500 animate-pulse" />}
     </div>
   );
 
@@ -214,13 +239,14 @@ const KachufulScoreboard = () => {
               {players.map((player, index) => {
                 const isLeading = player.score === getLeadingScore() && round > 1;
                 const isLosing = player.score === getLosingScore() && round > 1;
+                const isEditable = round <= 3;
                 return (
                   <tr key={index} className={`border-b border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     isLeading ? 'bg-green-100 dark:bg-green-900' : 
                     isLosing ? 'bg-red-100 dark:bg-red-900' : ''
                   }`}>
                     <td className="border border-gray-300 dark:border-gray-600 p-2">
-                      {renderPlayerName(player, index, isLeading, isLosing)}
+                      {renderPlayerName(player, index, isLeading, isLosing, isEditable, updatePlayerName)}
                     </td>
                     <td className="border border-gray-300 dark:border-gray-600 p-2 text-center font-bold text-lg">{player.score}</td>
                     <td className="border border-gray-300 dark:border-gray-600 p-2">
@@ -262,6 +288,7 @@ const KachufulScoreboard = () => {
           {players.map((player, index) => {
             const isLeading = player.score === getLeadingScore() && round > 1;
             const isLosing = player.score === getLosingScore() && round > 1;
+            const isEditable = round <= 3;
             return (
               <div key={index} className={`p-4 rounded-lg shadow ${
                 isLeading ? 'bg-green-100 dark:bg-green-900' : 
@@ -269,7 +296,7 @@ const KachufulScoreboard = () => {
                 'bg-gray-50 dark:bg-gray-700'
               }`}>
                 <div className="flex justify-between items-center mb-2">
-                  {renderPlayerName(player, index, isLeading, isLosing)}
+                  {renderPlayerName(player, index, isLeading, isLosing, isEditable, updatePlayerName)}
                   <Button onClick={() => removePlayer(index)} variant="danger" className="ml-2">
                     <UserMinus className="h-4 w-4" />
                   </Button>
@@ -326,20 +353,20 @@ const KachufulScoreboard = () => {
               <p>No rounds played yet in the current game.</p>
             ) : (
               <div className="space-y-4">
-                {gameHistory.map((history, index) => (
-                  <div key={index} className="border border-gray-300 dark:border-gray-600 p-2 rounded">
+                {gameHistory.map((history, historyIndex) => (
+                  <div key={historyIndex} className="border border-gray-300 dark:border-gray-600 p-2 rounded">
                     <h3 className="font-bold">Round {history.round}</h3>
                     <p>Trump: <span className={trumpColors[history.trumpSuit]}>{history.trumpSuit}</span></p>
                     <ul>
                       {history.players.map((player, playerIndex) => {
-                        const isLeading = player.score === Math.max(...history.players.map(p => p.score)) && history.round > 1;
-                        const isLosing = player.score === Math.min(...history.players.map(p => p.score)) && history.round > 1;
+                        const isLeading = player.score === Math.max(...history.players.map(p => p.score));
+                        const isLosing = player.score === Math.min(...history.players.map(p => p.score));
                         return (
                           <li key={playerIndex} className={`${
                             isLeading ? 'text-green-600 dark:text-green-400' : 
                             isLosing ? 'text-red-600 dark:text-red-400' : ''
                           }`}>
-                            {renderPlayerName(player, playerIndex, isLeading, isLosing)}
+                            {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
                             Score: {player.score}, Bid: {player.bid}, Tricks: {player.tricks}
                           </li>
                         );
@@ -357,10 +384,10 @@ const KachufulScoreboard = () => {
               <p>No past games available.</p>
             ) : (
               <div className="space-y-4">
-                {pastGames.map((game, index) => (
+                {pastGames.map((game, gameIndex) => (
                   <div key={game.id} className="border border-gray-300 dark:border-gray-600 p-2 rounded">
                     <div className="flex justify-between items-center">
-                      <h3 className="font-bold">Game {index + 1} - {game.date}</h3>
+                      <h3 className="font-bold">Game {gameIndex + 1} - {game.date}</h3>
                       <Button onClick={() => deletePastGame(game.id)} variant="danger">
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -375,7 +402,8 @@ const KachufulScoreboard = () => {
                             isLeading ? 'text-green-600 dark:text-green-400' : 
                             isLosing ? 'text-red-600 dark:text-red-400' : ''
                           }`}>
-                            {renderPlayerName(player, playerIndex, isLeading, isLosing)} {player.score}
+                            {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
+                            {player.score}
                           </li>
                         );
                       })}
@@ -396,7 +424,7 @@ const KachufulScoreboard = () => {
                                     isLeading ? 'text-green-600 dark:text-green-400' : 
                                     isLosing ? 'text-red-600 dark:text-red-400' : ''
                                   }`}>
-                                    {renderPlayerName(player, playerIndex, isLeading, isLosing)}
+                                    {renderPlayerName(player, playerIndex, isLeading, isLosing, false, () => {})}
                                     Score: {player.score}, Bid: {player.bid}, Tricks: {player.tricks}
                                   </li>
                                 );
