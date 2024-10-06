@@ -152,11 +152,11 @@ const KachufulScoreboard = () => {
   };
 
   const getLeadingScore = useCallback(() => {
-    return Math.max(...players.map(player => player.score));
+    return players.length > 0 ? Math.max(...players.map(player => player.score)) : 0;
   }, [players]);
 
   const getLosingScore = useCallback(() => {
-    return Math.min(...players.map(player => player.score));
+    return players.length > 0 ? Math.min(...players.map(player => player.score)) : 0;
   }, [players]);
 
   const updatePlayerName = (index, newName, historyIndex = -1) => {
@@ -253,9 +253,9 @@ const KachufulScoreboard = () => {
             </thead>
             <tbody>
               {players.map((player, index) => {
-                const isLeading = player.score === getLeadingScore() && round > 1;
-                const isLosing = player.score === getLosingScore() && round > 1;
-                const isEditable = round <= 3;
+                const isLeading = player.score === getLeadingScore() && (round > 1 || set > 1);
+                const isLosing = player.score === getLosingScore() && (round > 1 || set > 1);
+                const isEditable = set === 1 && round <= 3;
                 return (
                   <tr key={index} className={`border-b border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     isLeading ? 'bg-green-100 dark:bg-green-900' : 
@@ -302,9 +302,9 @@ const KachufulScoreboard = () => {
         {/* Card view for mobile screens */}
         <div className="md:hidden space-y-4">
           {players.map((player, index) => {
-            const isLeading = player.score === getLeadingScore() && round > 1;
-            const isLosing = player.score === getLosingScore() && round > 1;
-            const isEditable = round <= 3;
+            const isLeading = player.score === getLeadingScore() && (round > 1 || set > 1);
+            const isLosing = player.score === getLosingScore() && (round > 1 || set > 1);
+            const isEditable = set === 1 && round <= 3;
             return (
               <div key={index} className={`p-4 rounded-lg shadow ${
                 isLeading ? 'bg-green-100 dark:bg-green-900' : 
