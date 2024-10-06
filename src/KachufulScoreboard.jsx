@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Minus, UserPlus, UserMinus, Trash2, Moon, Sun, Crown, Frown } from 'lucide-react';
+import { Plus, Minus, UserPlus, UserMinus, Trash2, Moon, Sun, Crown, Frown, Shuffle } from 'lucide-react';
 
 const Button = ({ children, onClick, className, variant = 'primary', disabled = false }) => {
   const baseStyle = "px-4 py-2 rounded font-semibold transition-colors duration-200 flex items-center justify-center";
@@ -68,9 +68,11 @@ const KachufulScoreboard = () => {
 
   const startNewGame = () => {
     setPlayers([
-      { name: 'Player 1', score: 0, bid: 0, tricks: 0 },
-      { name: 'Player 2', score: 0, bid: 0, tricks: 0 },
-      { name: 'Player 3', score: 0, bid: 0, tricks: 0 },
+      { name: 'Rupesh', score: 0, bid: 0, tricks: 0 },
+      { name: 'Saurav', score: 0, bid: 0, tricks: 0 },
+      { name: 'Nirav', score: 0, bid: 0, tricks: 0 },
+      { name: 'Sandeep', score: 0, bid: 0, tricks: 0 },
+      { name: 'Sudarshan', score: 0, bid: 0, tricks: 0 },
     ]);
     setRound(1);
     setSet(1);
@@ -98,6 +100,15 @@ const KachufulScoreboard = () => {
     }));
   };
 
+  const rotatePlayers = () => {
+    setPlayers(prevPlayers => {
+      const newPlayers = [...prevPlayers];
+      const firstPlayer = newPlayers.shift();
+      newPlayers.push(firstPlayer);
+      return newPlayers;
+    });
+  };
+
   const nextRound = () => {
     const updatedPlayers = calculateAllScores();
     setPlayers(updatedPlayers);
@@ -115,7 +126,11 @@ const KachufulScoreboard = () => {
     
     const suits = ['♠', '♥', '♦', '♣'];
     setTrumpSuit(suits[round % 4]);
-    setPlayers(updatedPlayers.map(player => ({ ...player, bid: 0, tricks: 0 })));
+    
+    // Reset bid and tricks, then rotate players
+    const resetPlayers = updatedPlayers.map(player => ({ ...player, bid: 0, tricks: 0 }));
+    setPlayers(resetPlayers);
+    rotatePlayers();
   };
 
   const addPlayer = () => {
@@ -193,8 +208,10 @@ const KachufulScoreboard = () => {
       ) : (
         <span className="font-semibold mr-2">{player.name}</span>
       )}
-      {isLeading && <Crown className="h-5 w-5 text-yellow-500 animate-bounce" />}
-      {isLosing && <Frown className="h-5 w-5 text-red-500 animate-pulse" />}
+      {round > 1 && isLeading && <Crown className="h-5 w-5 text-yellow-500 animate-bounce" />}
+      {round > 1 && isLosing && <Frown className="h-5 w-5 text-red-500 animate-pulse" />}
+      {index === 0 && <span className="ml-2 text-xs font-semibold text-purple-600 dark:text-purple-400">(First Bid)</span>}
+      {index === players.length - 1 && <span className="ml-2 text-xs font-semibold text-orange-600 dark:text-orange-400">(Dealer)</span>}
     </div>
   );
 
@@ -313,6 +330,17 @@ const KachufulScoreboard = () => {
           </div>
         </div>
         
+        {/* Player order information */}
+        <div className="mb-4 p-4 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-800 dark:text-blue-200">
+          <p className="text-center font-semibold">
+            <span className="mr-2">🎭</span>
+            {players[0]?.name} starts bidding
+            <span className="mx-2">•</span>
+            <Shuffle className="inline-block h-5 w-5 mr-1" />
+            {players[players.length - 1]?.name} shuffles & deals
+          </p>
+        </div>
+
         {/* Table view for larger screens */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full border-collapse">
@@ -327,18 +355,26 @@ const KachufulScoreboard = () => {
             </thead>
             <tbody>
               {players.map((player, index) => {
-                const isLeading = player.score === getLeadingScore() && (round > 1 || set > 1);
-                const isLosing = player.score === getLosingScore() && (round > 1 || set > 1);
-                const isEditable = set === 1 && round <= 3;
+                const isLeading = player.score === getLeadingScore() && round > 1;
+                const isLosing = player.score === getLosingScore() && round > 1;
                 return (
                   <tr key={index} className={`border-b border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     isLeading ? 'bg-green-100 dark:bg-green-900' : 
                     isLosing ? 'bg-red-100 dark:bg-red-900' : ''
                   }`}>
                     <td className="border border-gray-300 dark:border-gray-600 p-2">
-                      {renderPlayerName(player, index, isLeading, isLosing, isEditable, updatePlayerName)}
+                      {renderPlayerName(
+                        player, 
+                        index, 
+                        isLeading, 
+                        isLosing, 
+                        round <= 2, 
+                        updatePlayerName
+                      )}
                     </td>
-                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center font-bold text-lg">{player.score}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center font-bold text-lg">
+                      {player.score}
+                    </td>
                     <td className="border border-gray-300 dark:border-gray-600 p-2">
                       <div className="flex items-center justify-center space-x-2">
                         <Button onClick={() => updatePlayer(index, 'bid', Math.max(0, player.bid - 1))} variant="secondary">
@@ -376,9 +412,8 @@ const KachufulScoreboard = () => {
         {/* Card view for mobile screens */}
         <div className="md:hidden space-y-4">
           {players.map((player, index) => {
-            const isLeading = player.score === getLeadingScore() && (round > 1 || set > 1);
-            const isLosing = player.score === getLosingScore() && (round > 1 || set > 1);
-            const isEditable = set === 1 && round <= 3;
+            const isLeading = player.score === getLeadingScore() && round > 1;
+            const isLosing = player.score === getLosingScore() && round > 1;
             return (
               <div key={index} className={`p-4 rounded-lg shadow ${
                 isLeading ? 'bg-green-100 dark:bg-green-900' : 
@@ -386,13 +421,25 @@ const KachufulScoreboard = () => {
                 'bg-gray-50 dark:bg-gray-700'
               }`}>
                 <div className="flex justify-between items-center mb-2">
-                  {renderPlayerName(player, index, isLeading, isLosing, isEditable, updatePlayerName)}
+                  {renderPlayerName(
+                    player, 
+                    index, 
+                    isLeading, 
+                    isLosing, 
+                    round <= 2, 
+                    updatePlayerName
+                  )}
                   <Button onClick={() => removePlayer(index)} variant="danger" className="ml-2">
                     <UserMinus className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold">Score: {player.score}</span>
+                  <span className={`font-bold ${
+                    isLeading ? 'text-green-600 dark:text-green-400' : 
+                    isLosing ? 'text-red-600 dark:text-red-400' : ''
+                  }`}>
+                    Score: {player.score}
+                  </span>
                   <div className="flex items-center space-x-2">
                     <span className="font-semibold">Bid:</span>
                     <Button onClick={() => updatePlayer(index, 'bid', Math.max(0, player.bid - 1))} variant="secondary">
