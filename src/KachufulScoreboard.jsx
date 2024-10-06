@@ -31,6 +31,8 @@ const KachufulScoreboard = () => {
   const [pastGames, setPastGames] = useState([]);
   const [activeTab, setActiveTab] = useState('current');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [gameEnded, setGameEnded] = useState(false);
+  const [winner, setWinner] = useState(null);
 
   const trumpColors = {
     '♠': 'text-gray-800 dark:text-gray-200',
@@ -65,16 +67,6 @@ const KachufulScoreboard = () => {
   }, [players, round, trumpSuit, gameActive, gameHistory, pastGames, isDarkMode]);
 
   const startNewGame = () => {
-    if (gameActive) {
-      const finalGameState = {
-        id: Date.now(),
-        date: new Date().toLocaleDateString(),
-        players: players.map(({ name, score }) => ({ name, score })),
-        rounds: [...gameHistory, { round, set, cardCount, players, trumpSuit }]
-      };
-      setPastGames(prev => [...prev, finalGameState]);
-    }
-    
     setPlayers([
       { name: 'Player 1', score: 0, bid: 0, tricks: 0 },
       { name: 'Player 2', score: 0, bid: 0, tricks: 0 },
@@ -85,6 +77,8 @@ const KachufulScoreboard = () => {
     setCardCount(8);
     setTrumpSuit('♠');
     setGameActive(true);
+    setGameEnded(false);
+    setWinner(null);
     setGameHistory([]);
     localStorage.removeItem('kachufulState');
   };
@@ -204,10 +198,90 @@ const KachufulScoreboard = () => {
     </div>
   );
 
-  if (!gameActive) {
+  const endGame = () => {
+    const finalScores = calculateAllScores();
+    const maxScore = Math.max(...finalScores.map(player => player.score));
+    const winners = finalScores.filter(player => player.score === maxScore);
+    
+    setPlayers(finalScores);
+    setWinner(winners);
+    setGameEnded(true);
+    
+    const finalGameState = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString(),
+      players: finalScores,
+      rounds: [...gameHistory, { round, set, cardCount, players: finalScores, trumpSuit }]
+    };
+    setPastGames(prev => [...prev, finalGameState]);
+    
+    localStorage.removeItem('kachufulState');
+  };
+
+  const getCardSuit = (index) => {
+    const suits = ['♠', '♥', '♦', '♣'];
+    return suits[index % suits.length];
+  };
+
+  const getMedalIcon = (rank) => {
+    switch (rank) {
+      case 1: return <span className="text-2xl mr-2" role="img" aria-label="Gold Medal">🥇</span>;
+      case 2: return <span className="text-2xl mr-2" role="img" aria-label="Silver Medal">🥈</span>;
+      case 3: return <span className="text-2xl mr-2" role="img" aria-label="Bronze Medal">🥉</span>;
+      default: return null;
+    }
+  };
+
+  if (!gameActive && !gameEnded) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
         <Button onClick={startNewGame} variant="primary" className="text-xl py-4 px-8">
+          Start New Game
+        </Button>
+      </div>
+    );
+  }
+
+  if (gameEnded) {
+    const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+    let currentRank = 1;
+    let prevScore = null;
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-purple-400 to-blue-500 dark:from-purple-900 dark:to-blue-900 text-white p-4">
+        <h1 className="text-6xl font-bold mb-8 text-center text-yellow-300 animate-bounce">
+          Game Over!
+        </h1>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-8 max-w-3xl w-full relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-2 bg-rainbow animate-rainbow"></div>
+          <h2 className="text-3xl font-bold mb-6 text-center text-gray-800 dark:text-white">
+            Final Scores
+          </h2>
+          <ul className="space-y-4">
+            {sortedPlayers.map((player, index) => {
+              if (player.score !== prevScore) {
+                currentRank = index + 1;
+              }
+              prevScore = player.score;
+
+              return (
+                <li key={index} className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                  <div className="flex items-center">
+                    {getMedalIcon(currentRank)}
+                    {currentRank > 3 && (
+                      <div className="h-8 w-8 flex items-center justify-center mr-2 text-2xl">
+                        {getCardSuit(index)}
+                      </div>
+                    )}
+                    <span className="text-xl font-semibold text-gray-800 dark:text-white">{player.name}</span>
+                  </div>
+                  <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{player.score}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <Button onClick={startNewGame} variant="primary" className="text-xl py-4 px-8 bg-green-500 hover:bg-green-600 transition-colors duration-300 transform hover:scale-105">
           Start New Game
         </Button>
       </div>
@@ -230,8 +304,8 @@ const KachufulScoreboard = () => {
             <Button onClick={addPlayer} variant="secondary">
               <UserPlus className="mr-2 h-4 w-4" /> Add Player
             </Button>
-            <Button onClick={startNewGame} variant="success">
-              New Game
+            <Button onClick={endGame} variant="danger">
+              End Game
             </Button>
             <Button onClick={toggleDarkMode} variant="secondary">
               {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
