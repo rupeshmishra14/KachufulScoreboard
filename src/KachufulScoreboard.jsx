@@ -23,6 +23,8 @@ const Button = ({ children, onClick, className, variant = 'primary', disabled = 
 const KachufulScoreboard = () => {
   const [players, setPlayers] = useState([]);
   const [round, setRound] = useState(1);
+  const [set, setSet] = useState(1);
+  const [cardCount, setCardCount] = useState(8);
   const [trumpSuit, setTrumpSuit] = useState('♠');
   const [gameActive, setGameActive] = useState(false);
   const [gameHistory, setGameHistory] = useState([]);
@@ -68,7 +70,7 @@ const KachufulScoreboard = () => {
         id: Date.now(),
         date: new Date().toLocaleDateString(),
         players: players.map(({ name, score }) => ({ name, score })),
-        rounds: [...gameHistory, { round, players, trumpSuit }]
+        rounds: [...gameHistory, { round, set, cardCount, players, trumpSuit }]
       };
       setPastGames(prev => [...prev, finalGameState]);
     }
@@ -79,6 +81,8 @@ const KachufulScoreboard = () => {
       { name: 'Player 3', score: 0, bid: 0, tricks: 0 },
     ]);
     setRound(1);
+    setSet(1);
+    setCardCount(8);
     setTrumpSuit('♠');
     setGameActive(true);
     setGameHistory([]);
@@ -103,8 +107,18 @@ const KachufulScoreboard = () => {
   const nextRound = () => {
     const updatedPlayers = calculateAllScores();
     setPlayers(updatedPlayers);
-    setGameHistory(prev => [...prev, { round, players: updatedPlayers, trumpSuit }]);
-    setRound(prevRound => prevRound + 1);
+    setGameHistory(prev => [...prev, { round, set, cardCount, players: updatedPlayers, trumpSuit }]);
+    
+    if (round % 8 === 0) {
+      // End of a set
+      setSet(prevSet => prevSet + 1);
+      setRound(1);
+      setCardCount(8);
+    } else {
+      setRound(prevRound => prevRound + 1);
+      setCardCount(prevCount => prevCount - 1);
+    }
+    
     const suits = ['♠', '♥', '♦', '♣'];
     setTrumpSuit(suits[round % 4]);
     setPlayers(updatedPlayers.map(player => ({ ...player, bid: 0, tricks: 0 })));
@@ -206,7 +220,9 @@ const KachufulScoreboard = () => {
       <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
         <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
           <div className="flex items-center gap-4">
-            <div className="text-lg font-semibold">Round: <span className="text-blue-600 dark:text-blue-400">{round}</span></div>
+            <div className="text-lg font-semibold">Set: <span className="text-blue-600 dark:text-blue-400">{set}</span></div>
+            <div className="text-lg font-semibold">Round: <span className="text-blue-600 dark:text-blue-400">{round}/8</span></div>
+            <div className="text-lg font-semibold">Cards: <span className="text-blue-600 dark:text-blue-400">{cardCount}</span></div>
             <div className="text-lg font-semibold">Trump: <span className={`text-2xl ${trumpColors[trumpSuit]}`}>{trumpSuit}</span></div>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -355,8 +371,8 @@ const KachufulScoreboard = () => {
               <div className="space-y-4">
                 {gameHistory.map((history, historyIndex) => (
                   <div key={historyIndex} className="border border-gray-300 dark:border-gray-600 p-2 rounded">
-                    <h3 className="font-bold">Round {history.round}</h3>
-                    <p>Trump: <span className={trumpColors[history.trumpSuit]}>{history.trumpSuit}</span></p>
+                    <h3 className="font-bold">Set {history.set}, Round {history.round}</h3>
+                    <p>Cards: {history.cardCount}, Trump: <span className={trumpColors[history.trumpSuit]}>{history.trumpSuit}</span></p>
                     <ul>
                       {history.players.map((player, playerIndex) => {
                         const isLeading = player.score === Math.max(...history.players.map(p => p.score));
@@ -413,8 +429,8 @@ const KachufulScoreboard = () => {
                       <div className="mt-2">
                         {game.rounds.map((round, roundIndex) => (
                           <div key={roundIndex} className="border-t border-gray-300 dark:border-gray-600 pt-2 mt-2">
-                            <h4 className="font-semibold">Round {round.round}</h4>
-                            <p>Trump: <span className={trumpColors[round.trumpSuit]}>{round.trumpSuit}</span></p>
+                            <h4 className="font-semibold">Set {round.set}, Round {round.round}</h4>
+                            <p>Cards: {round.cardCount}, Trump: <span className={trumpColors[round.trumpSuit]}>{round.trumpSuit}</span></p>
                             <ul>
                               {round.players.map((player, playerIndex) => {
                                 const isLeading = player.score === Math.max(...round.players.map(p => p.score));
