@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Minus, UserPlus, UserMinus, Trash2, Moon, Sun, Crown, Frown, Shuffle, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Minus, UserPlus, UserMinus, Trash2, Moon, Sun, Crown, Frown, Shuffle, X, ArrowUp, ArrowDown, HelpCircle, Share2 } from 'lucide-react';
 
 const Button = ({ children, onClick, className, variant = 'primary', disabled = false }) => {
   const baseStyle = "px-4 py-2 rounded font-semibold transition-colors duration-200 flex items-center justify-center";
@@ -38,6 +38,9 @@ const KachufulScoreboard = () => {
   const [cardCountDirection, setCardCountDirection] = useState('descending');
   const [showCardCountModal, setShowCardCountModal] = useState(false);
   const [pointsTable, setPointsTable] = useState([]);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [showNewTrumpModal, setShowNewTrumpModal] = useState(false);
 
   const trumpColors = {
     '♠': 'text-gray-800 dark:text-gray-200',
@@ -57,7 +60,7 @@ const KachufulScoreboard = () => {
         gameActive, 
         gameHistory, 
         pastGames, 
-        isDarkMode, 
+        isDarkMode,
         cardCountDirection,
         pointsTable
       } = JSON.parse(savedState);
@@ -195,10 +198,7 @@ const KachufulScoreboard = () => {
     const rotatedPlayers = [...resetPlayers.slice(1), resetPlayers[0]];
     setPlayers(rotatedPlayers);
     setIsScoreCalculated(false);
-    setShowTrumpCard(true);
-    
-    // Hide trump card after 3 seconds
-    setTimeout(() => setShowTrumpCard(false), 3000);
+    setShowNewTrumpModal(true);
   };
 
   const addPlayer = () => {
@@ -329,6 +329,65 @@ const KachufulScoreboard = () => {
     setPastGames(prev => prev.filter(game => game.id !== gameId));
   };
 
+  const tutorialSteps = [
+    { title: "Welcome to Kachuful Scoreboard", content: "This tutorial will guide you through the main features of the app." },
+    { title: "Adding Players", content: "Click the 'Add Player' button to add new players to the game." },
+    { title: "Bidding", content: "Use the '+' and '-' buttons next to 'Bid' to set each player's bid for the round." },
+    { title: "Tracking Tricks", content: "After playing the round, use the '+' and '-' buttons next to 'Tricks' to record the tricks won by each player." },
+    { title: "Calculating Scores", content: "Click 'Calculate Score' to update the scores based on bids and tricks won." },
+    { title: "Next Round", content: "After calculating scores, click 'Next Round' to move to the next round or set." },
+    { title: "Ending the Game", content: "When you're finished playing, click 'End Game' to see the final results." }
+  ];
+
+  const startTutorial = () => {
+    setShowTutorial(true);
+    setTutorialStep(0);
+  };
+
+  const nextTutorialStep = () => {
+    if (tutorialStep < tutorialSteps.length - 1) {
+      setTutorialStep(tutorialStep + 1);
+    } else {
+      setShowTutorial(false);
+    }
+  };
+
+  const shareResults = () => {
+    const shareText = `I just finished a game of Kachuful! Final scores:\n${players
+      .map(player => `${player.name}: ${player.score}`)
+      .join('\n')}`;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: 'Kachuful Game Results',
+        text: shareText,
+        url: window.location.href,
+      })
+        .then(() => console.log('Successful share'))
+        .catch((error) => console.log('Error sharing', error));
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      const textarea = document.createElement('textarea');
+      textarea.textContent = shareText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        alert('Game results copied to clipboard! You can now paste and share them.');
+      } catch (err) {
+        console.error('Failed to copy text: ', err);
+      }
+      document.body.removeChild(textarea);
+    }
+  };
+
+  const LiveStreamIcon = () => (
+    <svg className="w-5 h-5 mr-2 inline-block" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="3" fill="currentColor" className="animate-ping"/>
+      <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="currentColor" strokeWidth="2" className="animate-pulse"/>
+    </svg>
+  );
+
   if (!gameActive && !gameEnded) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -400,7 +459,17 @@ const KachufulScoreboard = () => {
         </div>
       </div>
 
-        <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
+      {/* Tutorial and Share buttons */}
+      <div className="flex justify-end mb-4">
+        <Button onClick={startTutorial} variant="secondary" className="mr-2">
+          <HelpCircle className="h-4 w-4 mr-1" /> Tutorial
+        </Button>
+        <Button onClick={() => shareResults()} variant="secondary">
+          <Share2 className="h-4 w-4 mr-1" /> Share Results
+        </Button>
+      </div>
+
+      <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
         {/* Remove the game information row */}
           
           {/* Player order information */}
@@ -591,29 +660,35 @@ const KachufulScoreboard = () => {
             )}
           </div>
 
-          {/* Trump Card Modal */}
-          {showTrumpCard && (
+          {/* Remove the Trump Card Modal */}
+
+          {/* New Trump Modal */}
+          {showNewTrumpModal && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg relative">
-                <button 
-                  onClick={() => setShowTrumpCard(false)} 
-                  className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-                <h2 className="text-2xl font-bold mb-4 text-center">New Trump Card</h2>
-                <div className={`text-9xl ${trumpColors[trumpSuit]} text-center`}>{trumpSuit}</div>
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg text-center">
+                <h2 className="text-2xl font-bold mb-4">New Trump Card</h2>
+                <div className={`text-9xl ${trumpColors[trumpSuit]} mb-6`}>{trumpSuit}</div>
+                <div className="flex justify-center">
+                  <Button 
+                    onClick={() => setShowNewTrumpModal(false)} 
+                    variant="primary"
+                    className="px-8 py-2"
+                  >
+                    OK
+                  </Button>
+                </div>
               </div>
             </div>
           )}
 
-        {/* Tabs for Live Points Table, Current Game, and Past Games */}
+          {/* Tabs for Live Points Table, Current Game, and Past Games */}
           <div className="mt-8">
             <div className="flex mb-4">
               <button
                 onClick={() => setActiveTab('livePoints')}
-                className={`px-4 py-2 ${activeTab === 'livePoints' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} rounded-l-lg`}
+                className={`px-4 py-2 ${activeTab === 'livePoints' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'} rounded-l-lg flex items-center`}
               >
+                <LiveStreamIcon />
                 Live Points Table
               </button>
               <button
@@ -802,6 +877,24 @@ const KachufulScoreboard = () => {
                     className="flex items-center"
                   >
                     <ArrowUp className="mr-2" /> 1 to 8
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tutorial Modal */}
+          {showTutorial && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg max-w-md">
+                <h2 className="text-2xl font-bold mb-4">{tutorialSteps[tutorialStep].title}</h2>
+                <p className="mb-6">{tutorialSteps[tutorialStep].content}</p>
+                <div className="flex justify-between">
+                  <Button onClick={() => setShowTutorial(false)} variant="secondary">
+                    Skip Tutorial
+                  </Button>
+                  <Button onClick={nextTutorialStep} variant="primary">
+                    {tutorialStep < tutorialSteps.length - 1 ? "Next" : "Finish"}
                   </Button>
                 </div>
               </div>
