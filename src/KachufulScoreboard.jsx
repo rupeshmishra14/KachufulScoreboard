@@ -470,10 +470,33 @@ const KachufulScoreboard = () => {
       </div>
 
       <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
-        {/* Remove the game information row */}
-          
+        {/* Game Information */}
+        <div className={`rounded-lg shadow-md p-4 mb-4 bg-white dark:bg-gray-800`}>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center space-x-4">
+              <div className="text-lg font-semibold">Set: <span className="text-blue-600 dark:text-blue-400">{set}</span></div>
+              <div className="text-lg font-semibold">Round: <span className="text-blue-600 dark:text-blue-400">{round}/8</span></div>
+              <div className="text-lg font-semibold">Cards: <span className="text-blue-600 dark:text-blue-400">{cardCount}</span></div>
+              <div className="flex items-center">
+                <span className="text-lg font-semibold mr-2">Trump:</span>
+                <span className={`text-6xl ${trumpColors[trumpSuit]} animate-float hover:animate-wiggle transition-all duration-300 transform hover:scale-110`}>
+                  {trumpSuit}
+                </span>
+              </div>
+            </div>
+            {round <= 2 && players.length < 7 && (
+              <Button 
+                onClick={addPlayer} 
+                variant="secondary" 
+                className="text-sm"
+              >
+                <UserPlus className="h-4 w-4 mr-2" /> Add Player
+              </Button>
+            )}
+          </div>
+
           {/* Player order information */}
-          <div className="mb-4 p-4 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-800 dark:text-blue-200">
+          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-800 dark:text-blue-200">
             <p className="text-center font-semibold">
               <span className="mr-2">🎭</span>
               {players[0]?.name} starts bidding
@@ -482,31 +505,8 @@ const KachufulScoreboard = () => {
               {players[players.length - 1]?.name} shuffles & deals
             </p>
           </div>
+        </div>
 
-          <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
-            <div className="flex items-center gap-4">
-              <div className="text-lg font-semibold">Set: <span className="text-blue-600 dark:text-blue-400">{set}</span></div>
-              <div className="text-lg font-semibold">Round: <span className="text-blue-600 dark:text-blue-400">{round}/8</span></div>
-              <div className="text-lg font-semibold">Cards: <span className="text-blue-600 dark:text-blue-400">{cardCount}</span></div>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {round <= 2 && (
-                <Button onClick={addPlayer} variant="secondary">
-                  <UserPlus className="mr-2 h-4 w-4" /> Add Player
-                </Button>
-              )}
-            </div>
-          </div>
-          
-          {/* Centered Trump Card with enhanced animation */}
-          <div className="flex justify-center items-center mb-4">
-            <div className="text-2xl font-semibold">Trump: 
-              <span className={`text-6xl ${trumpColors[trumpSuit]} animate-pulse hover:animate-bounce transition-all duration-300 transform hover:scale-110`}>
-                {trumpSuit}
-              </span>
-            </div>
-          </div>
-          
           {/* Table view for larger screens */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full border-collapse">
