@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Minus, UserPlus, UserMinus, Trash2, Moon, Sun, Crown, Frown, Shuffle, X, ArrowUp, ArrowDown, HelpCircle, Share2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Minus, UserPlus, UserMinus, Trash2, Moon, Sun, Crown, Frown, Shuffle, X, ArrowUp, ArrowDown, HelpCircle, Share2, Download } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 const Button = ({ children, onClick, className, variant = 'primary', disabled = false }) => {
   const baseStyle = "px-4 py-2 rounded font-semibold transition-colors duration-200 flex items-center justify-center";
@@ -41,6 +42,8 @@ const KachufulScoreboard = () => {
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const [showNewTrumpModal, setShowNewTrumpModal] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const scoreboardRef = useRef(null);
 
   const trumpColors = {
     '♠': 'text-gray-800 dark:text-gray-200',
@@ -283,26 +286,56 @@ const KachufulScoreboard = () => {
     </div>
   );
 
-  const endGame = () => {
-    if (window.confirm("Are you sure you want to end the game?")) {
-      const finalScores = calculateAllScores();
-      const maxScore = Math.max(...finalScores.map(player => player.score));
-      const winners = finalScores.filter(player => player.score === maxScore);
-      
-      setPlayers(finalScores);
-      setWinner(winners);
-      setGameEnded(true);
-      
-      const finalGameState = {
-        id: Date.now(),
-        date: new Date().toLocaleDateString(),
-        players: finalScores,
-        rounds: [...gameHistory, { round, set, cardCount, players: finalScores, trumpSuit }],
-        pointsTable: pointsTable
-      };
-      setPastGames(prev => [...prev, finalGameState]);
-      
-      localStorage.removeItem('kachufulState');
+  const handleGameOver = () => {
+    const finalScores = calculateAllScores();
+    const maxScore = Math.max(...finalScores.map(player => player.score));
+    const winners = finalScores.filter(player => player.score === maxScore);
+    
+    setPlayers(finalScores);
+    setWinner(winners);
+    setGameEnded(true);
+    
+    const finalGameState = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString(),
+      players: finalScores,
+      rounds: [...gameHistory, { round, set, cardCount, players: finalScores, trumpSuit }],
+      pointsTable: pointsTable
+    };
+    setPastGames(prev => [...prev, finalGameState]);
+    
+    localStorage.removeItem('kachufulState');
+  };
+
+  const shareResult = async () => {
+    if (scoreboardRef.current) {
+      const canvas = await html2canvas(scoreboardRef.current);
+      const imageDataUrl = canvas.toDataURL('image/png');
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'Kachuful Scoreboard',
+            text: 'Check out my Kachuful game result!',
+            files: [new File([await (await fetch(imageDataUrl)).blob()], 'kachuful-score.png', { type: 'image/png' })],
+          });
+        } catch (error) {
+          console.error('Error sharing:', error);
+        }
+      } else {
+        alert('Sharing is not supported on this device. You can use the download button instead.');
+      }
+    }
+  };
+
+  const downloadResult = async () => {
+    if (scoreboardRef.current) {
+      const canvas = await html2canvas(scoreboardRef.current);
+      const imageDataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = imageDataUrl;
+      link.download = 'kachuful-score.png';
+      link.click();
     }
   };
 
@@ -352,35 +385,6 @@ const KachufulScoreboard = () => {
     }
   };
 
-  const shareResults = () => {
-    const shareText = `I just finished a game of Kachuful! Final scores:\n${players
-      .map(player => `${player.name}: ${player.score}`)
-      .join('\n')}`;
-    
-    if (navigator.share) {
-      navigator.share({
-        title: 'Kachuful Game Results',
-        text: shareText,
-        url: window.location.href,
-      })
-        .then(() => console.log('Successful share'))
-        .catch((error) => console.log('Error sharing', error));
-    } else {
-      // Fallback for browsers that don't support the Web Share API
-      const textarea = document.createElement('textarea');
-      textarea.textContent = shareText;
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-        alert('Game results copied to clipboard! You can now paste and share them.');
-      } catch (err) {
-        console.error('Failed to copy text: ', err);
-      }
-      document.body.removeChild(textarea);
-    }
-  };
-
   const LiveStreamIcon = () => (
     <svg className="w-5 h-5 mr-2 inline-block" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="12" cy="12" r="3" fill="currentColor" className="animate-ping"/>
@@ -408,7 +412,7 @@ const KachufulScoreboard = () => {
         <h1 className="text-6xl font-bold mb-8 text-center text-yellow-300 animate-bounce">
           Game Over!
         </h1>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-8 max-w-3xl w-full relative overflow-hidden">
+        <div ref={scoreboardRef} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-8 max-w-3xl w-full relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-2 bg-rainbow animate-rainbow"></div>
           <h2 className="text-3xl font-bold mb-6 text-center text-gray-800 dark:text-white">
             Final Scores
@@ -437,9 +441,17 @@ const KachufulScoreboard = () => {
             })}
           </ul>
         </div>
-        <Button onClick={startNewGame} variant="primary" className="text-xl py-4 px-8 bg-green-500 hover:bg-green-600 transition-colors duration-300 transform hover:scale-105">
-          Start New Game
-        </Button>
+        <div className="flex space-x-4">
+          <Button onClick={startNewGame} variant="primary" className="text-xl py-4 px-8 bg-green-500 hover:bg-green-600 transition-colors duration-300 transform hover:scale-105">
+            Start New Game
+          </Button>
+          <Button onClick={shareResult} variant="secondary" className="text-xl py-4 px-8 transition-colors duration-300 transform hover:scale-105">
+            <Share2 className="h-5 w-5 mr-2" /> Share
+          </Button>
+          <Button onClick={downloadResult} variant="secondary" className="text-xl py-4 px-8 transition-colors duration-300 transform hover:scale-105">
+            <Download className="h-5 w-5 mr-2" /> Download
+          </Button>
+        </div>
       </div>
     );
   }
@@ -453,20 +465,23 @@ const KachufulScoreboard = () => {
             {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
           <h1 className="text-2xl font-bold text-center flex-grow">Kachuful Scoreboard</h1>
-          <Button onClick={endGame} variant="danger" className="text-sm px-2 py-1">
-            End Game
-          </Button>
+          <div className="flex space-x-2">
+            <Button onClick={handleGameOver} variant="danger" className="text-sm px-2 py-1">
+              End Game
+            </Button>
+            <Button onClick={startTutorial} variant="secondary" className="text-sm px-2 py-1">
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Tutorial and Share buttons */}
       <div className="flex justify-end mb-4">
-        <Button onClick={startTutorial} variant="secondary" className="mr-2">
-          <HelpCircle className="h-4 w-4 mr-1" /> Tutorial
-        </Button>
-        <Button onClick={() => shareResults()} variant="secondary">
+        {/* Remove the following button from the main game view */}
+        {/* <Button onClick={() => shareResults()} variant="secondary">
           <Share2 className="h-4 w-4 mr-1" /> Share Results
-        </Button>
+        </Button> */}
       </div>
 
       <div className={`rounded-lg shadow-md p-6 mb-6 bg-white dark:bg-gray-800`}>
